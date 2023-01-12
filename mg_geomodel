@@ -1,970 +1,453 @@
-time_initial <- Sys.time()
-###############################################
-## 1. PARAMETERS TO BE SET BY THE USER
-###############################################
 
-  Time_start_1 <- Sys.time()
+library(shiny)
+library(shinycssloaders)
 
-  # 1.1. Set the working directory
-  setwd("C:/Users/mgenckal/OneDrive - Axon Partners Group/Axon Partners Group - (MG LOCAL)/PIBPT15 - (MG LOCAL)/01. Geomodel/Geomodel interface/Shiny Trials/App-1/geomodel code and related codes to input into shiny")
 
-  # THIS PART SHOULD BE INPUTTED BY THE USER
-  # # 1.2. Set the network architecture
-  # no_of_segments <- 3 #This refers to how many nodes will be calculated as outputs. The options are 2 and 3.
-  # lex_locations_available <- 0 #If the network architecture is scorched node (if the locations of the LEX are available) this will be 1, and 0 otherwise (scorched earth)
-  # separate_HH_per_DPs_by_building_type <- 1 #If the number of DPs per building is separated, 1 should be selected, and 0 otherwise
-  # split_minisections_further <- 0 #If the user wants to split the minisections further, this should be set to 1
-  # install_libraries <- 0
-  # 
-  # # 1.3. Set the dimensioning parameters
-  # HH_per_LEX <- 13000  #Number of households per Local Exchange, this refers to the uppermost node in the network architecture
-  # HH_per_OFP <- 30 #Number of households per, this refers to the intermediate node in the network architecture, relevant only in a network with 3 segments. If 2, ignore this.
-  # HH_per_DP <- 6     #Number of households per DP, this refers to the first intermediate node in the network architecture, where buildings are directly connected to.
-  # HH_per_SDU_DP <- 4 #Number of households per SDU DP, this refers to the first intermediate node in the network architecture, where buildings are directly connected to.
-  # HH_per_MDU_DP <- 16 #Number of households per MDU DP, this refers to the first intermediate node in the network architecture, where buildings are directly connected to.
-  # sq_range <- 10000 #The range to define the squares around the local exchanges in order to define the network graphs
-  # interval <- 20 # Maximum length of the road segments in order to increase the granularity of the results
-  # 
-  # # 1.4. Input the type and name of the buildings, roads and local exchange input files
-  # ################## Types of the buildings and local exchange input files, should be selected from the options of "csv" or "shp" ##################
-  # 
-  # type_buildings_file <- "shp"
-  # type_lex_file <- "shp"    
-  # 
-  # ################## Names of the buildings, roads and local exchange input files, should not include the file extension ##################
-  # 
-  # buildings_file_name <- "Belgium_buildings_full_NGI_31370"  # Do not include the file extension (.shp or .csv)
-  # roads_file_name     <- "Belgium_full_roads_split_50_31370"      # Do not include the file extension (.shp)
-  # lex_file_name <- "belgium_sample_600K_LEXs_3812" # Do not include the file extension (.shp or .csv)
-  # 
-  # # 1.5. Set the origin and preferred Cartesian system of reference to be used throughout the calculations
-  # 
-  # EPSG_origin_buldings <- 31370 #Numeric code of the buildings inputs' original Cartesian system
-  # EPSG_origin_roads <- 31370 #Numeric code of the roads inputs' original Cartesian system
-  # EPSG_origin_lex <- 31370 #Numeric code of the local exchange inputs' original Cartesian system
-  # EPSG_for_calculations <- 31370 #Numeric code of the Cartesian system to be used throughout the analysis
-  # 
-  Time_end_1 <- Sys.time()
+# 1.1. Set the working directory
+setwd("C:/Users/mgenckal/OneDrive - Axon Partners Group/Axon Partners Group - (MG LOCAL)/PIBPT15 - (MG LOCAL)/01. Geomodel/Geomodel interface/Shiny Trials/App-1")
 
-###############################################
-## 2. LOADING OF ADDITIONAL SCRIPTS/PACKAGES
-###############################################
+# The DBA projects way of defining choices beforehand rather than inside the UI:
+# ------------
+# T_Input_Load_Mode <- data.frame(Description=character(),stringsAsFactors = FALSE)
+# T_Input_Load_Mode [1,] <- "CO"
+# T_Input_Load_Mode [2,] <- "MDF"
+# T_Input_Load_Mode [3,] <- "PDP"
+# T_Input_Load_Mode [4,] <- "SDP"
+# T_Input_Load_Mode [5,] <- "CO_area"
+# colnames(T_Input_Load_Mode)[1] <- "Description"
+# 
+# T_Input_Network <- data.frame(Description=character(),stringsAsFactors = FALSE)
+# T_Input_Network [1,] <- "Copper"
+# T_Input_Network [2,] <- "Fibre"
+# T_Input_Network [3,] <- "Coax"
+# colnames(T_Input_Network)[1] <- "Description"  
+# 
+# T_Execution_Mode <- data.frame(Description=character(),stringsAsFactors = FALSE)
+# T_Execution_Mode [1,] <- "KPIs"
+# T_Execution_Mode [2,] <- "Generate Routes"
+# T_Execution_Mode [3,] <- "Associate Buildings to Access Nodes"
+# colnames(T_Execution_Mode)[1] <- "Description"  
+# 
+# T_Export_Mode <- data.frame(Description=character(),stringsAsFactors = FALSE)
+# T_Export_Mode [1,] <- "Export KPIs"
+# T_Export_Mode [2,] <- "Export Map"
+# colnames(T_Export_Mode)[1] <- "Description"  
+# ------------
+
+
+# My explanation of the UI and some notes for guidance:
+# ------------
+# Our expectations from the shiny interface before the model.
+# 
+# 1-
+#   For number of segments:
+#   2 or 3
+# 
+# 2-
+#   For lex locations available:
+#   0 as no or 1 as yes
+# 
+# 3- 
+#   For dimentioning parameters:
+#   there should be a box where the number is entered manually
+# 
+# 4-
+#   For inputs:
+#   there should be a drop down list that is is either shp or csv
+# 
+# 5- 
+#   For file names:
+#   they should be manually written as a text or even better should be selected from a file
+# 
+# 6- 
+#   For coordinate systems:
+#   they should be manually written in a box for all
+#   (A note: for the first 3, we want them to input the coordinate system of the files uploaded. 
+#     For the last one, they should input which coordinate system they want to run them as.(Such as 3812 for Belgium))
+# ------------
+
+
+# Defining the function that will take the geomodel code and the UI inputs and will run and save it's results.
+# ------------
+
+
+# geomodel_code <- file(path = "./data") #NBED. I might have to input the geomodel before UI so later I can update stuff in it
+# In theory, what I want to do is I want to save user inputs in UI and then update the associated parameters in the geomodel_code
+# And then run the geomodel_code in the server function.
+
+# source("geomodel code and related codes to input into shiny/Scripts/osgeomodel - final - v1.1 - Trial MG LOCAL.R")
+# This line would run the whole model and that takes too long, ı want it to only run once with the inputs.
+
+# This is the function to run the model
+run_model_with_inputs <- function(inputs) { #Should it be function(inputs, outputs) ??
   
-  Time_start_2 <- Sys.time()
-
-  # 2.1. Load functions
-  source(paste(getwd(),"/Scripts/Support_Functions - v0.8 MG LOCAL.R",sep=""))
-
-  # 2.2. Install libraries
-  if(install_libraries >0) {
-  F_Install_Libraries() }
+  # To define the global variables from the UI inputs. "inputs" is a list created in the server function.
+  no_of_segments  <- inputs$no_of_segments
+  lex_locations_available  <- inputs$lex_locations_available
+  separate_HH_per_DPs_by_building_type <- inputs$separate_HH_per_DPs_by_building_type
+  split_minisections_further <- inputs$split_minisections_further
+  HH_per_LEX <- inputs$HH_per_LEX
+  HH_per_OFP <- inputs$HH_per_OFP 
+  HH_per_DP <- inputs$HH_per_DP 
+  HH_per_SDU_DP <- inputs$HH_per_SDU_DP 
+  HH_per_MDU_DP <- inputs$HH_per_MDU_DP 
+  sq_range <- inputs$sq_range 
+  interval <- inputs$interval
+  type_buildings_file <- inputs$type_buildings_file
+  type_lex_file <- inputs$type_lex_file
+  buildings_file_name <- inputs$buildings_file_name
+  roads_file_name <- inputs$roads_file_name
+  lex_file_name <- inputs$lex_file_name
+  EPSG_origin_buldings <- inputs$EPSG_origin_buldings
+  EPSG_origin_roads <- inputs$EPSG_origin_roads
+  EPSG_origin_lex <- inputs$EPSG_origin_lex
+  EPSG_for_calculations <- inputs$EPSG_for_calculations
   
-  # 2.2. Load libraries
-  F_Load_Libraries()
-
-  # 2.3. Set of directories
-  T_Parameter_File <- data.frame(Parameter_Name = c("Folder_Scripts", "Folder_Input_Files", "Folder_Output_Files", "Folder_Default"),
-                               Parameter_Value = c(paste(getwd(),"/Scripts",sep=""), paste(getwd(),"/Inputs",sep=""), paste(getwd(),"/Outputs",sep=""), paste(getwd())))
-
-  # 2.4. Set of additional parameters
-  options(digits=10) #Set the number of digits to 10 for visualisation
-  options(scipen=999) #Set R for not using exponential notation
+  # Set the working directory
+  setwd("C:/Users/mgenckal/OneDrive - Axon Partners Group/Axon Partners Group - (MG LOCAL)/PIBPT15 - (MG LOCAL)/01. Geomodel/Geomodel interface/Shiny Trials/App-1")
+  # Source the main_code.R file
+  source("geomodel code and related codes to input into shiny/Scripts/osgeomodel_final_v012_noparameters_MG_LOCAL.R")  
+  #source("geomodel code and related codes to input into shiny/Scripts/osgeomodel_final_v012_noparameters_MG_LOCAL.R",local = TRUE) 
+  # local = FALSE (the default) corresponds to the user's workspace (the global environment) and TRUE to the environment from which source is called.
   
-  Time_end_2 <- Sys.time()
-
-###############################################
-## 3. LOADING OF INPUTS
-###############################################
-
-  Time_start_3 <- Sys.time()
+  # NBED: The above source and the below main code might be making the geomodel script run twice.
+  # It is normally not advised but making the user inputs saved in the global environment in the same way I create them in the inputs list in the server function...
+  # and just running the source function above with a geomodel where the parameters are commented out might work.
   
-  # 3.1. Loading of buildings
-  if(type_buildings_file == "shp") {  
-    buildings_initial_inputs <- read_sf(paste(getwd(),"/Inputs/",buildings_file_name,".",type_buildings_file,sep=""))
-    }  else { buildings_initial_inputs <- read.csv(paste(getwd(),"/Inputs/",buildings_file_name,".",type_buildings_file,sep=""), sep = ",") #The separator used in the csv should be correctly introduced
-              buildings_initial_inputs <- select(buildings_initial_inputs, X, Y, NUM_HH)
-    } 
+  # # Run the main code by passing inputs as arguments. But I think this assumes it is a function while it isn't.
+  # osgeomodel_final_v012_noparameters_MG_LOCAL(no_of_segments = inputs$no_of_segments,
+  #                                             lex_locations_available = inputs$lex_locations_available,
+  #                                             separate_HH_per_DPs_by_building_type = inputs$separate_HH_per_DPs_by_building_type,
+  #                                             split_minisections_further = inputs$split_minisections_further,
+  #                                             HH_per_LEX = inputs$HH_per_LEX, 
+  #                                             HH_per_OFP = inputs$HH_per_OFP, 
+  #                                             HH_per_DP = inputs$HH_per_DP, 
+  #                                             HH_per_SDU_DP = inputs$HH_per_SDU_DP, 
+  #                                             HH_per_MDU_DP = inputs$HH_per_MDU_DP, 
+  #                                             sq_range = inputs$sq_range, 
+  #                                             interval = inputs$interval,
+  #                                             type_buildings_file = inputs$type_buildings_file,
+  #                                             type_lex_file = inputs$type_lex_file,
+  #                                             buildings_file_name = inputs$buildings_file_name,
+  #                                             roads_file_name = inputs$roads_file_name,
+  #                                             lex_file_name = inputs$lex_file_name,
+  #                                             EPSG_origin_buldings = inputs$EPSG_origin_buldings,
+  #                                             EPSG_origin_roads = inputs$EPSG_origin_roads,
+  #                                             EPSG_origin_lex = inputs$EPSG_origin_lex,
+  #                                             EPSG_for_calculations = inputs$EPSG_for_calculations)
+  
+  # Save the intermediate results of the model
+  saveRDS(data_table, file = "geomodel code and related codes to input into shiny/Outputs/data_table.rds")
+  
+  return("Model run complete!")
+}
+# ------------
 
-  # 3.2. Loading of roads
-  roads_shape <- read_sf(paste(getwd(),"/Inputs/",roads_file_name,".shp",sep=""))
+
+
+# ------------
+ui = navbarPage(
   
-  # 3.3. Loading of local exchange locations
+  title = h3(strong("BIPT FTTH Bottom-Up Cost Model")),
   
-  if(lex_locations_available > 0) {
-    if(type_lex_file == "shp") {  
-      lex_initial_inputs <- read_sf(paste(getwd(),"/Inputs/",lex_file_name,".",type_lex_file,sep=""))
-     }  else { lex_initial_inputs <- read.csv(paste(getwd(),"/Inputs/",lex_file_name,".",type_lex_file,sep=""), sep = ",") #The separator used in the csv should be correctly introduced
-            lex_initial_inputs <- select(lex_initial_inputs, X, Y)
-     } 
+  tabPanel(title = h4("Introduction"),
+           
+             fluidRow
+             (
+               column(6,
+                      img(src = "Logo_Axon.png") #type the name of the axon alone or both Axon and BIPT's logos merged together pdf file here.
+               )
+             ),
+             br(), # This line gives a blank space
+             fluidRow # this command makes the boxes and texts fit the users screen size.
+             (
+               column(6,
+                      h3(strong("BIPT FTTH Bottom-Up Cost Model"))
+               )
+             ),
+           fluidRow
+           (
+             mainPanel(
+               p("This interface is used to select the model’s main available options,
+                 enter the required parameters, 
+                 and run the model. "),
+               
+               p("NOTE: We can type and put anything here. This is supposed to be the title page that gives a brief introduction to the user."),
+               
+               # NBED Should there be an output as a text after the model is ran?
+               verbatimTextOutput("result") # verbatimTextOutput or textOutput ?
+               
+             ) 
+
+             )
+           ),
+  
+  tabPanel(title = h4("Network Architecture"),
+      
+           h4("Setting the Network Architecture"),
+           
+           wellPanel(
+             fluidRow
+             (
+               # 1.1- number of segments
+               # This refers to how many nodes will be calculated as outputs. The options are 2 and 3.
+               column(2,
+                      selectInput("no_of_segments", label = strong("Number of Segments"),
+                                  choices = list("2" = 2, "3" = 3), selected = 1, size="1",selectize = FALSE)),
+               
+               # 1.2- For lex locations available:
+               # If the network architecture is scorched node (if the locations of the LEX are available) this will be 1, and 0 otherwise (scorched earth)
+               column(2,
+                      selectInput("lex_locations_available", label = strong("Are Local Exchange Locations Available?"),
+                                  choices = list("Yes" = 1, "No" = 0), selected = 1, size="1",selectize = FALSE)),
+               
+               # 1.3- For checking id # of DP's per building is seperated:
+               # If the number of DPs per building is separated, 1 should be selected, and 0 otherwise
+               column(2,
+                      selectInput("separate_HH_per_DPs_by_building_type", label = strong("Are the number of DPs per building is separated?"),
+                                  choices = list("Yes" = 1, "No" = 0), selected = 1, size="1",selectize = FALSE)),
+               
+               # 1.4- For splitting minisections further:
+               # If the user wants to split the minisections further, this should be set to 1
+               column(2,
+                      selectInput("split_minisections_further", label = strong("Should the minisections be seperated further?"),
+                                  choices = list("Yes" = 1, "No" = 0), selected = 1, size="1",selectize = FALSE)),
+               
+               column(2
+               ),
+               # column(2,
+               #        actionButton("F_Load", " IMPORT ", style="padding:15px; font-size:18px; width:150px; height: 58px;")
+               # )
+             )
+           )     
+           
+  ),
+  
+  tabPanel(title = h4("Dimentioning Parameters"),
+          
+           h4("Setting the Dimentioning Parameters"),
+           
+           wellPanel(
+             fluidRow
+             (
+               # 2.1- Number of households per Local Exchange
+               # this refers to the uppermost node in the network architecture
+               column(2,
+                      textInput("HH_per_LEX", label = strong("Number of households per Local Exchange"), 
+                                value = "Enter number...")),
+               
+               # 2.2- Number of households per Local Exchange
+               # this refers to the intermediate node in the network architecture
+               # relevant only in a network with 3 segments. If 2, ignore this.
+               # NBED: (Haven't added anything to check this. Check later. 
+               column(2,
+                      textInput("HH_per_OFP", label = strong("Number of households per OFP"), 
+                                value = "Enter number...")),
+               
+               # 2.3- Number of households per DP
+               # this refers to the first intermediate node in the network architecture, where buildings are directly connected to.
+               column(2,
+                      textInput("HH_per_DP", label = strong("Number of households per DP"), 
+                                value = "Enter number...")),
+               
+               # 2.4- Number of households per DP
+               # this refers to the first intermediate node in the network architecture, where buildings are directly connected to.
+               column(2,
+                      textInput("HH_per_SDU_DP", label = strong("Number of households per SDU DP"), 
+                                value = "Enter number...")),
+               
+               # 2.5- Number of households per MDU DP
+               # this refers to the first intermediate node in the network architecture, where buildings are directly connected to.      
+               column(2,
+                      textInput("HH_per_MDU_DP", label = strong("Number of households per SDU DP"), 
+                                value = "Enter number...")),
+               
+               # 2.6- Range of squares around the Local Exchanges
+               # The range to define the squares around the local exchanges in order to define the network graphs      
+               column(2,
+                      textInput("sq_range", label = strong("Range of squares around the Local Exchanges"), 
+                                value = "Enter number...")),
+               
+               # 2.7- Maximum length of the road segments
+               # Maximum length of the road segments in order to increase the granularity of the results     
+               column(2,
+                      textInput("interval", label = strong("Maximum length of the road segments"), 
+                                value = "Enter number...")),
+               
+               column(2
+               ),
+               # column(2,
+               #        actionButton("F_Run", " RUN ", style="padding:15px; font-size:18px; width:150px; height: 58px;")
+               # )
+             )
+           ) 
+           
+  ), 
+  
+  tabPanel(title = h4("File Input's"),
+
+           h4("Buildings, Roads and Local Exchanges Input's"),
+           
+           wellPanel(
+             fluidRow
+             (
+               # Buildings, roads and local exchange input files
+               
+               # 3.1- For Buildings Inputs Format:
+               #NBED: this might be better to be implemented as a choice box. Decide later.
+               column(2, 
+                      textInput("type_buildings_file", label = strong("Building Inputs File Format:"), 
+                                value = "Type shp or csv...")),
+               
+               # 3.2- For Roads Inputs Format:
+               #NBED: this might be better to be implemented as a choice box. Decide later.
+               column(2, 
+                      textInput("type_roads_file", label = strong("Roads Inputs File Format:"), 
+                                value = "Type shp or csv...")),
+               
+               # 3.3- For Roads Inputs Format:
+               #NBED: this might be better to be implemented as a choice box. Decide later.
+               column(2, 
+                      textInput("type_lex_file", label = strong("Local Exchanges Inputs File Format:"), 
+                                value = "Type shp or csv...")),
+               
+               
+               # 3.4- For Buildings Inputs Name:
+               column(2, 
+                      textInput("buildings_file_name", label = strong("Building Inputs File Name:"), 
+                                value = "Type the name of the file without extension (.shp or .csv)")),
+               
+               # 3.5- For Roads Inputs Name:
+               column(2, 
+                      textInput("roads_file_name", label = strong("Roads Inputs File Format:"), 
+                                value = "Type the name of the file without extension (.shp or .csv)")),
+               
+               # 3.6- For Roads Inputs Name:
+               column(2, 
+                      textInput("lex_file_name", label = strong("Local Exchanges Inputs File Format:"), 
+                                value = "Type the name of the file without extension (.shp or .csv)")),
+               
+               # # 3.7- For file upload:
+               # # We should keep in mind that they can directly upload the file by choosing too.
+               # column(3,
+               #        fileInput("file_name", label = strong("They can directly choose the file too!"))),
+               
+             )
+           )
+           
+  ),
+  
+  tabPanel(title = h4("Cartesian System of Reference"),
+
+           h4("Setting the origin and preferred Cartesian system of reference to be used"),
+           
+           wellPanel(
+             fluidRow
+             (
+               # 4.1- Buildings inputs' original Cartesian system
+               # Numeric code of the buildings inputs' original Cartesian system
+               column(2,
+                      textInput("EPSG_origin_buldings", label = strong("Enter Buildings inputs' original Cartesian system"), 
+                                value = "Enter number...")),
+               
+               # 4.2- Roads inputs' original Cartesian system
+               # Numeric code of the roads inputs' original Cartesian system
+               column(2,
+                      textInput("EPSG_origin_roads", label = strong("Enter Roads inputs' original Cartesian system"), 
+                                value = "Enter number...")),
+               
+               # 4.3- Local exchange inputs' original Cartesian system
+               # Numeric code of the local exchange inputs' original Cartesian system
+               column(2,
+                      textInput("EPSG_origin_lex", label = strong("Enter Local exchange inputs' original Cartesian system"), 
+                                value = "Enter number...")),
+               
+               # 4.4- Cartesian system to be used throughout the analysis
+               # Numeric code of the Cartesian system to be used throughout the analysis
+               column(2,
+                      textInput("EPSG_for_calculations", label = strong("Enter Cartesian system to be used throughout the analysis"), 
+                                value = "Enter number...")),
+               
+               column(2
+               ),
+               # column(2,
+               #        actionButton("F_Load", " IMPORT ", style="padding:15px; font-size:18px; width:150px; height: 58px;")
+               # )
+             )
+           )
+           
+  ),
+  
+  tabPanel(title = h4("Run"),
+           # 5- The run button to run the model
+           # Input: actionButton() to defer the rendering of output
+           # until the user explicitly clicks the button (rather than
+           # doing it immediately when inputs change). This is useful if
+           # the computations required to render output are inordinately
+           # time-consuming.
+           column(2,
+           actionButton("run_the_model", "Run the model", style="padding:15px; font-size:18px; width:150px; height: 58px;")
+           )
+           
+           # column(2,
+           #        actionButton("F_Run", " RUN ", style="padding:15px; font-size:18px; width:150px; height: 58px;")
+           # )
+           
+  ),
+)
+# ------------
+  
+  # Define server logic ----
+  server = function(input, output, session) {
+    
+    # There should be some kind of a reactive event which would run the model if the user clicks the run the model button in UI.
+    #eventReactive() # NBED: We could also use bindEvent or observeEvent somehow.
+    
+    #Run the model when the user clicks the "run_the_model" button
+    observeEvent(input$run_the_model(), { # NBED: ı don't know if there should be () after input$run_the_model.
+      
+      #Show a spinner while the model is running
+      withSpinner(
+        # create a list of inputs
+        inputs <- list(
+          # the input list elements
+          no_of_segments <- input$no_of_segments,
+          lex_locations_available <- input$lex_locations_available,
+          separate_HH_per_DPs_by_building_type <- input$separate_HH_per_DPs_by_building_type,
+          split_minisections_further <- input$split_minisections_further,
+          HH_per_LEX <- input$HH_per_LEX,
+          HH_per_OFP <- input$HH_per_OFP,
+          HH_per_DP <- input$HH_per_DP,
+          HH_per_SDU_DP <- input$HH_per_SDU_DP,
+          HH_per_MDU_DP <- input$HH_per_MDU_DP,
+          sq_range <- input$sq_range,
+          interval <- input$interval,
+          type_buildings_file <- input$type_buildings_file,
+          type_lex_file <- input$type_lex_file,
+          buildings_file_name <- input$buildings_file_name,
+          roads_file_name <- input$roads_file_name,
+          lex_file_name <- input$lex_file_name,
+          EPSG_origin_buldings <- input$EPSG_origin_buldings,
+          EPSG_origin_roads <- input$EPSG_origin_roads,
+          EPSG_origin_lex <- input$EPSG_origin_lex,
+          EPSG_for_calculations <- input$EPSG_for_calculations),
+  
+    # Code to run when the button is pressed
+    output$result <- renderText({ # I don't know if it should be <- or = // Also, whether it should be renderPrint or renderText
+      
+      #The models lines should probably be down below.
+      run_model_with_inputs(inputs)
+      # return("Model run complete!")
+    }),
+    label = "Running Model...",
+    color = "black"
+      )
+  })
+    # NBED: Important to terminate the R process when the shiny app session ends
+    session$onSessionEnded(function() {
+      stopApp()
+    })
   }
-  
-  Time_end_3 <- Sys.time()    
 
-###############################################
-## 4. CALCULATIONS
-###############################################  
-  
-  ## 4.1. TREATMENT OF RELEVANT INPUTS
-  
-  Time_start_4_1 <- Sys.time()
-  
-    #4.1.1. Buildings treatment
-    ################## Transform the building location CRS to the CRS of reference selected ##################
-  
-    if(type_buildings_file == "shp") 
-      {  
-        if(EPSG_origin_buldings != EPSG_for_calculations)
-          {
-            Bld_geo_transformed <- st_transform(buildings_initial_inputs$geometry, EPSG_for_calculations) #Transforms the CRS to the one defined by the user
-            I_Buildings <- as.data.frame(st_coordinates(Bld_geo_transformed))
-            rm(Bld_geo_transformed)
-          }    else 
-          {    I_Buildings <- as.data.frame(st_coordinates(buildings_initial_inputs$geometry))      }
-    } else {
-      I_Buildings <- create_geometries_and_transform(buildings_initial_inputs$X, buildings_initial_inputs$Y, EPSG_origin_buldings, EPSG_for_calculations)
-    }
-  
-    ################## Additional parameters for the building inputs ##################
-  
-    I_Buildings$Building_ID <- 1:nrow(I_Buildings)
-    I_Buildings$Num_HH <- buildings_initial_inputs$NUM_HH ## BE CAREFUL WITH THE NUMBER OF HOUSEHOLDS COLUMN NAME ##
-    I_Buildings <- I_Buildings[which(!is.na(I_Buildings$Num_HH)),]
-    I_Buildings <- I_Buildings[which(I_Buildings$Num_HH != 0),]
-    
-    #I_Buildings$Num_HH <- ceiling(I_Buildings$Num_HH)  ## ONLY ADDED FOR THE SPECIAL CASE OF ISRAEL ##
-    
-    buildings_col_order <- c('Building_ID', 'X', 'Y', 'Num_HH')
-    
-    I_Buildings <- I_Buildings[, buildings_col_order]
-    
-    ################## Remove data that will not be used further in the model to open up space in memory ##################
-   
-    rm(buildings_initial_inputs, buildings_col_order)
-    gc()
-    
-    #4.1.2. Local exchanges treatment
-    
-    ## Create geometry object from local exchange coordinates and transform it into the EPSG for the calculations
-    
-    ########## Only applicable if the local exchange locations are selected as available from the parameters (scorched node approach) ########## 
-    
-    if(lex_locations_available>0) {
-      
-      if(type_lex_file == "shp") 
-      {  
-        if(EPSG_origin_lex != EPSG_for_calculations)
-        {
-          LEX_geo_transformed <- st_transform(lex_initial_inputs$geometry, EPSG_for_calculations) #Transforms the CRS to the one defined by the user
-          C_Local_Exchanges <- as.data.frame(st_coordinates(LEX_geo_transformed))
-        }    else {    
-          C_Local_Exchanges <- as.data.frame(st_coordinates(lex_initial_inputs$geometry))      }
-      } else {
-        C_Local_Exchanges <- create_geometries_and_transform(lex_initial_inputs$X, lex_initial_inputs$Y, EPSG_origin_lex, EPSG_for_calculations)
-      }
-      
-      C_Local_Exchanges$LEX_ID <- 1:nrow(C_Local_Exchanges)
-      lex_col_order <- c('LEX_ID', 'X', 'Y')
-      C_Local_Exchanges <- C_Local_Exchanges[, lex_col_order]
-      
-      rm(lex_initial_inputs, lex_col_order)
-      gc()
-
-    }
-    
-    Time_end_4_1 <- Sys.time()      
-    
-  ## 4.2. LOCAL EXCHANGE LOCATIONS AND ASSIGNMENT OF BUILDINGS TO A LOCAL EXCHANGE
-    
-    Time_start_4_2 <- Sys.time()
-    
-    #4.2.1. Calculation of local exchange locations
-    ########## Only applicable if the local exchange locations are selected as unavailable from the parameters (scorched earth approach) ########## 
-    
-    if(lex_locations_available == 0) {
-    no_local_exchanges <- ceiling(sum(I_Buildings$Num_HH)/HH_per_LEX)
-    C_Local_Exchanges <- F_parallel_kmeans_LEX_location(I_Buildings)  }
-    
-    #4.2.2. Creation of the Voronoi diagrams from the local exchange locations
-    # Create pts from latitude & longitude data
-    lex_pts <- tibble(latitude = C_Local_Exchanges$X, longitude = C_Local_Exchanges$Y) %>%
-      st_as_sf(coords = c('latitude', 'longitude')) %>%
-      st_set_crs(as.double(EPSG_for_calculations))
-   
-    # Create the Voronoi diagram from the given locations
-    inp_voronoi_lex <- st_voronoi(st_combine(lex_pts))
-    voronoi_lex_polygons <- st_collection_extract(inp_voronoi_lex)
-  
-    #4.2.3. Assignation of each building to one of the local exchanges
-    
-    T_Buildings <- F_Assign_points_to_LEX_areas_new(I_Buildings, voronoi_lex_polygons)
-    T_Buildings <- T_Buildings[order(T_Buildings$Building_ID)]
-   
-    T_LEXs <- F_Assign_points_to_LEX_areas_new(C_Local_Exchanges, voronoi_lex_polygons)
-    T_LEXs$LEX_ID <- T_LEXs$Connected_LEX_ID
-    T_LEXs <- T_LEXs[order(T_LEXs$LEX_ID)]
-    if(lex_locations_available >0) 
-    {
-      HHs_by_LEX <- T_Buildings %>% group_by(Connected_LEX_ID) %>% summarise(Num_Households = sum(Num_HH))
-      T_LEXs$Num_Households <- HHs_by_LEX$Num_Households[match(T_LEXs$LEX_ID, HHs_by_LEX$Connected_LEX_ID)]
-    }
-    
-    T_LEXs <- select(T_LEXs, LEX_ID, X, Y, Num_Households)
-    rownames(T_LEXs) <- 1:nrow(T_LEXs)
- 
-    Buildings_by_LEX <- T_Buildings %>% group_by(Connected_LEX_ID) %>% summarise(Total_Buildings = n(), .groups = 'drop')
-    T_LEXs$Num_Buildings <- Buildings_by_LEX$Total_Buildings[match(T_LEXs$LEX_ID, Buildings_by_LEX$Connected_LEX_ID)]
-    
-    rm(Buildings_by_LEX, I_Buildings, lex_pts, inp_voronoi_lex, C_Local_Exchanges)
-    
-    if(lex_locations_available >0) 
-    {  rm(HHs_by_LEX)   }
-    
-    gc()
-    
-    Time_end_4_2 <- Sys.time()
-    
-    save.image(paste(getwd(),"/Outputs/Belgium_full_data_until_road_network.RData",sep = ""))
-    
-  ## 4.3. CALCULATION OF THE ROAD NETWORK AND INTERSECTIONS
-    
-    # 4.3.1. Calculation of intersections (points that determine the start and end of each road segment)
-    
-    # Transform the intersection coordinates to the Cartesian system determined
-    
-    Time_start_4_3_1 <- Sys.time()
-    
-    if(EPSG_origin_roads != EPSG_for_calculations)
-    {
-      Road_network_transformed <- st_transform(roads_shape$geometry, EPSG_for_calculations) #Transforms the CRS to the one defined by the user
-      T_Intersections <- as.data.frame(st_coordinates(Road_network_transformed))
-      rm(Road_network_transformed)
-    }    else 
-    {    T_Intersections <- as.data.frame(st_coordinates(roads_shape$geometry))      }
-    
-    T_Intersections_Unique <- select(T_Intersections, X, Y)
-    T_Intersections_Unique <- unique(T_Intersections_Unique)
-    T_Intersections_Unique$Intersection_ID <- 1:nrow(T_Intersections_Unique)
-    T_Intersections_Unique$Full_coordinate <- glue("{T_Intersections_Unique$X} ,{T_Intersections_Unique$Y}", .sep='')
-
-    T_Intersections$Full_coordinate <- glue("{T_Intersections$X} ,{T_Intersections$Y}", .sep='')
-    
-    T_Intersections$Intersection_ID <- T_Intersections_Unique$Intersection_ID[fmatch(T_Intersections$Full_coordinate,T_Intersections_Unique$Full_coordinate)]
-    
-    T_Intersections <- select(T_Intersections, -Full_coordinate)
-    T_Intersections_Unique <- select(T_Intersections_Unique, -Full_coordinate)
-    
-    rm(roads_shape)
-    gc()
-
-    Time_end_4_3_1 <- Sys.time()
-    
-    #4.3.2. Calculation of minisections (smaller road segments)
-    
-    Time_start_4_3_2 <- Sys.time()
-    
-    T_Minisections <- head(T_Intersections, - 1)
-    T_Minisections$Dest_X <- T_Intersections$X[2:nrow(T_Intersections)]
-    T_Minisections$Dest_Y <- T_Intersections$Y[2:nrow(T_Intersections)]
-    T_Minisections$Dest_L1 <- T_Intersections$L1[2:nrow(T_Intersections)]
-    T_Minisections$Intersection_ID_B <- T_Intersections$Intersection_ID[2:nrow(T_Intersections)]
-    colnames(T_Minisections)[colnames(T_Minisections) == 'Intersection_ID'] <- 'Intersection_ID_A'
-    
-    # Remove the unconnected (virtual) segments
-    
-    T_Minisections <- T_Minisections[which(T_Minisections$L1 == T_Minisections$Dest_L1),]
-    
-    # Calculate the Euclidean distance for each road segment
-
-    T_Minisections$Distance <- sqrt((T_Minisections$X-T_Minisections$Dest_X)^2+(T_Minisections$Y-T_Minisections$Dest_Y)^2)
-    
-    # Split the minisections into smaller segments based on the interval set at the beginning
-    
-    if(split_minisections_further >0 ){
-    
-    T_Minisections_and_Intersections <- F_Split_Minisections_new(T_Minisections, interval)
-
-    T_Minisections <- T_Minisections_and_Intersections[[1]]
-    T_Intersections <- T_Minisections_and_Intersections[[2]]
-    T_Intersections_Unique <- T_Minisections_and_Intersections[[3]]
- 
-    rm(T_Minisections_and_Intersections)
-    gc()
-    
-    }
-    
-    # Determine the local exchange area that each intersection belongs to, and use the mapping for the minisections
-    T_Intersections_Unique <- F_Assign_points_to_LEX_areas_new(T_Intersections_Unique, voronoi_lex_polygons)
-    colnames(T_Intersections_Unique)[which(colnames(T_Intersections_Unique)=='Connected_LEX_ID')] = 'LEX_ID'
-    
-    T_Intersections$LEX_ID <- T_Intersections_Unique$LEX_ID[fmatch(T_Intersections$Intersection_ID, T_Intersections_Unique$Intersection_ID)]
-    
-    T_Minisections$LEX_ID <- T_Intersections_Unique$LEX_ID[fmatch(T_Minisections$Intersection_ID_A, T_Intersections_Unique$Intersection_ID)]
-    T_Minisections$Dest_LEX_ID <- T_Intersections_Unique$LEX_ID[fmatch(T_Minisections$Intersection_ID_B, T_Intersections_Unique$Intersection_ID)]
-    
-    minisections_col_order <- c('X', 'Y', 'L1', 'LEX_ID', 'Intersection_ID_A', 'Dest_X', 'Dest_Y', 'Dest_L1', 'Dest_LEX_ID', 'Intersection_ID_B', 'Distance')
-    T_Minisections <- setcolorder(T_Minisections, minisections_col_order)
-    
-    rm(minisections_col_order,voronoi_lex_polygons)
-    gc()
-    
-    Time_end_4_3_2 <- Sys.time()
-    
-    #4.3.3. Calculation of the closest intersection to each building (straight line)
-    
-    Time_start_4_3_3 <- Sys.time()
-    
-    Intersection_assignment_buildings <- F_Calculate_closest_intersection_to_point_new(T_Buildings, 'Buildings', T_Intersections_Unique, nrow(T_LEXs), EPSG_for_calculations)
-    T_Buildings$Closest_Intersection_ID <- Intersection_assignment_buildings$Closest_Intersection_ID[fmatch(T_Buildings$Building_ID, Intersection_assignment_buildings$Point_ID)]
-    
-    T_Buildings$Intersection_X <- T_Intersections_Unique$X[fmatch(T_Buildings$Closest_Intersection_ID, T_Intersections_Unique$Intersection_ID)]
-    T_Buildings$Intersection_Y <- T_Intersections_Unique$Y[fmatch(T_Buildings$Closest_Intersection_ID, T_Intersections_Unique$Intersection_ID)]
-    
-    T_Buildings$Distance_to_intersection <- sqrt((T_Buildings$X-T_Buildings$Intersection_X)^2+(T_Buildings$Y-T_Buildings$Intersection_Y)^2)
-    
-    rm(Intersection_assignment_buildings)
-    gc()
-    
-    Time_end_4_3_3 <- Sys.time()
-    
-    #4.3.4. Calculation of the closest intersection to each Local Exchange (straight line)
-    
-    Time_start_4_3_4 <- Sys.time()
-    
-    Intersection_assignment_LEXs <- F_Calculate_closest_intersection_to_point_new(T_LEXs, 'LEXs', T_Intersections_Unique, nrow(T_LEXs), EPSG_for_calculations)
-    
-    T_LEXs$Closest_Intersection_ID <- Intersection_assignment_LEXs$Closest_Intersection_ID[match(T_LEXs$LEX_ID, Intersection_assignment_LEXs$Point_ID)]
-    
-    T_LEXs$Intersection_X <- T_Intersections_Unique$X[fmatch(T_LEXs$Closest_Intersection_ID, T_Intersections_Unique$Intersection_ID)]
-    T_LEXs$Intersection_Y <- T_Intersections_Unique$Y[fmatch(T_LEXs$Closest_Intersection_ID, T_Intersections_Unique$Intersection_ID)]
-    
-    T_LEXs$Distance_to_intersection <- sqrt((T_LEXs$X-T_LEXs$Intersection_X)^2+(T_LEXs$Y-T_LEXs$Intersection_Y)^2)
-    
-    rm(Intersection_assignment_LEXs)
-    
-    Time_end_4_3_4 <- Sys.time()
-    
-    #4.3.5. Creation of the network graph to compute shortest route and distances
-    
-    Time_start_4_3_5 <- Sys.time()
-    
-    graph_list <- F_Create_network_graph_list(T_Minisections, T_LEXs, sq_range)
-    
-    Time_end_4_3_5 <- Sys.time()
-    
-    save.image(paste(getwd(),"/Outputs/Belgium_full_data_until_routes.RData",sep = ""))
-    
-  ## 4.4. CALCULATION OF THE ROUTES BETWEEN BUILDINGS AND LOCAL EXCHANGES
-    
-    # 4.4.1. Preparation of building inputs to compute route and distances
-    
-    Time_start_4_4_1 <- Sys.time()
-    
-    Buildings_inputs <- setDT(select(T_Buildings, Building_ID, Connected_LEX_ID , Closest_Intersection_ID))
-    Buildings_inputs$LEX_Intersection_ID <- T_LEXs$Closest_Intersection_ID[fmatch(Buildings_inputs$Connected_LEX_ID, T_LEXs$LEX_ID)]
-    Buildings_inputs$Building_ID <- as.character(Buildings_inputs$Building_ID)
-    Buildings_inputs$Closest_Intersection_ID <- as.character(Buildings_inputs$Closest_Intersection_ID)
-    Buildings_inputs$LEX_Intersection_ID <- as.character(Buildings_inputs$LEX_Intersection_ID)
-    Buildings_inputs$Connected_LEX_ID <- as.integer(Buildings_inputs$Connected_LEX_ID)
-    
-    Buildings_inputs_net_graph <- lapply(1:nrow(T_LEXs), function(x) Buildings_inputs[which(Buildings_inputs$Connected_LEX_ID == x),])
-    
-    rm(Buildings_inputs)
-    gc()
-    
-    Time_end_4_4_1 <- Sys.time()
-    
-    # 4.4.2. Calculation of the shortest routes and distances between buildings and Local Exchanges
-    
-    Time_start_4_4_2 <- Sys.time()
-    
-    closeAllConnections()
-    unregister_dopar()
-    gc()
-      
-    nw <- detectCores() - 3
-    cl <- parallel::makeCluster(nw)
-    doParallel::registerDoParallel(cl)
-      
-    ## Calculation of the routes and distances from each building to its to local exchange assigned
-    # Takes around 5 minutes for 600K buildings #
-      
-    Results_list_building_to_LEX <- vector("list", length=nrow(T_LEXs))
-    
-    Results_list_building_to_LEX <- foreach (i = 1:nrow(T_LEXs), .packages = c('igraph', 'dplyr', 'data.table')) %dopar% {
-        
-      origins  <- Buildings_inputs_net_graph[[i]]
-        
-      destination  <- origins$LEX_Intersection_ID[1]
-      
-      origins <- origins[Closest_Intersection_ID %in% as_ids(V(graph_list[[i]]))]
-        
-      temp_distances <- igraph::distances(graph_list[[i]], v = origins$Closest_Intersection_ID , to = destination)
-   
-      temp_paths <- igraph::get.shortest.paths(graph_list[[i]], from = destination, to = origins$Closest_Intersection_ID, output="vpath")
-        
-      temp_paths_unlist <- sapply(temp_paths$vpath, as_ids)
-        
-      temp_paths_unlist_concat <- sapply(temp_paths_unlist, paste, collapse = ',')
-        
-      temp_routes_and_distances <- cbind(origins,temp_distances, temp_paths_unlist_concat)
-        
-      colnames(temp_routes_and_distances)[5:6] <- c('Distance_to_LEX', 'Route_to_LEX')
-      
-      if(i %% 10 == 0) {gc()}
-        
-      return(temp_routes_and_distances) 
-    }
-      
-    stopCluster(cl)
-    closeAllConnections()
-    unregister_dopar()
-    gc()
-      
-    Results_buildings_to_LEX <- data.table::rbindlist(Results_list_building_to_LEX)
-    
-    ## Add the distances and routes to the buildings table ##
-    
-    T_Buildings$Distance_to_LEX <- Results_buildings_to_LEX$Distance_to_LEX[fmatch(T_Buildings$Building_ID, Results_buildings_to_LEX$Building_ID)]
-    T_Buildings$Route_to_LEX <- Results_buildings_to_LEX$Route_to_LEX[fmatch(T_Buildings$Building_ID, Results_buildings_to_LEX$Building_ID)]
-    
-    rm(Results_list_building_to_LEX, Results_buildings_to_LEX, Buildings_inputs_net_graph, nw, cl)
-    gc()
-    
-    Time_end_4_4_2 <- Sys.time()
-    
-    save.image(paste(getwd(),"/Outputs/Belgium_full_data_until_intersection_distances.RData",sep = ""))
-    
-    # 4.4.3. Calculation of the distances between each intersection and its assigned node
-    
-    Time_start_4_4_3 <- Sys.time()
-    
-    T_Intersection_distances <- F_Intersection_Distances_to_LEXs(T_Buildings, T_LEXs, graph_list, round(nrow(T_LEXs)/100, digits = 0) )
-    
-    rm(graph_list)
-    gc()
-    
-    Time_end_4_4_3 <- Sys.time()
-    
-    save.image(paste(getwd(),"/Outputs/Belgium_sample_600K_until_DPs.RData",sep = ""))
-    
-    ## 4.5. CALCULATION OF THE INTERMEDIATE NODE LOCATIONS BETWEEN BUILDINGS AND LOCAL EXCHANGES
-    
-    # 4.5.1. Calculation of DP locations
-    
-    Time_start_4_5_1 <- Sys.time()
-    
-    if(separate_HH_per_DPs_by_building_type == 0) {
-      DP_mapping_and_list <- F_DP_Location_Calculation_no_building_separation(T_Buildings, T_LEXs, T_Intersection_distances, HH_per_DP) } else {
-      DP_mapping_and_list <- F_DP_Location_Calculation_with_building_separation(T_Buildings, T_LEXs, T_Intersection_distances, HH_per_SDU_DP, HH_per_MDU_DP)
-      }
-    
-    DP_mapping_by_buildings <- DP_mapping_and_list[[1]]
-    T_DPs <- DP_mapping_and_list[[2]]
-
-    T_DPs$X <- T_Intersections_Unique$X[fmatch(T_DPs$DP_Intersection_ID, T_Intersections_Unique$Intersection_ID)]
-    T_DPs$Y <- T_Intersections_Unique$Y[fmatch(T_DPs$DP_Intersection_ID, T_Intersections_Unique$Intersection_ID)]
-    T_DPs$Mapping <- paste(T_DPs$DP_Intersection_ID,"-",T_DPs$LEX_ID,sep='')
-   
-    T_DPs$Distance_DP_to_LEX <- DP_mapping_by_buildings$Distance_DP_to_LEX[match(T_DPs$Mapping, DP_mapping_by_buildings$Mapping, nomatch = NA)]
-  
-    T_Buildings$Temp_Mapping <- paste(T_Buildings$Building_ID,"-",T_Buildings$Connected_LEX_ID,sep='')
-    
-    T_Buildings$Connected_DP_Intersection_ID <- DP_mapping_by_buildings$DP_Intersection_ID[match(T_Buildings$Temp_Mapping, DP_mapping_by_buildings$Mapping_building, nomatch = NA)]
-    T_Buildings$Distance_DP_to_LEX <- DP_mapping_by_buildings$Distance_DP_to_LEX[match(T_Buildings$Temp_Mapping, DP_mapping_by_buildings$Mapping_building, nomatch = NA)]
-    T_Buildings$Distance_DP_to_LEX <- as.numeric(T_Buildings$Distance_DP_to_LEX)
-    T_Buildings$Distance_building_to_DP <- T_Buildings$Distance_to_LEX - T_Buildings$Distance_DP_to_LEX
-    T_Buildings <- select(T_Buildings, -c(Temp_Mapping))
-    
-    rm(DP_mapping_and_list, DP_mapping_by_buildings)
-    
-    gc()
-    
-    Time_end_4_5_1 <- Sys.time()
-    
-    # 4.5.2. Calculation of routes from buildings to DPs and DPs to Local Exchanges
-    
-    time_start_4_5_2 <- Sys.time()
-    
-    closeAllConnections()
-    unregister_dopar()
-    gc()
-      
-    nw <- detectCores() -3
-    cl <- parallel::makeCluster(nw)
-    doParallel::registerDoParallel(cl)
-      
-    building_routes_DP_LEX <- foreach(i = 1:nrow(T_LEXs), .packages = c('data.table', 'igraph', 'fastmatch')) %dopar% {
-        
-    temp_buildings <- setDT(T_Buildings)[Connected_LEX_ID == i]
-    temp_buildings$LEX_Closest_Intersection_ID <- T_LEXs$Closest_Intersection_ID[which(T_LEXs$LEX_ID == i)]
-    
-    temp_routes <- unlist(temp_buildings$Route_to_LEX)
-    temp_DP_location <- paste(",",as.character(temp_buildings$Connected_DP_Intersection_ID),",", sep='')
-    temp_split_routes <- stringr::str_split(temp_routes, temp_DP_location, n = 2)
-        
-    temp_buildings$Route_Building_to_DP <- lapply(1:length(temp_split_routes), function(i) {paste(temp_buildings$Connected_DP_Intersection_ID[i],",",temp_split_routes[[i]][2], sep='')  })
-    temp_buildings$Route_DP_to_LEX <- lapply(1:length(temp_split_routes), function(i) {paste(temp_split_routes[[i]][1],",",temp_buildings$Connected_DP_Intersection_ID[i], sep='')  })
-        
-    temp_buildings$Route_Building_to_DP[which(temp_buildings$Closest_Intersection_ID == temp_buildings$Connected_DP_Intersection_ID)] <- 'NA'
-    temp_buildings$Route_DP_to_LEX[which(temp_buildings$Closest_Intersection_ID == temp_buildings$Connected_DP_Intersection_ID)] <- temp_buildings$Route_to_LEX[which(temp_buildings$Closest_Intersection_ID == temp_buildings$Connected_DP_Intersection_ID)]
-    
-    temp_buildings$Route_Building_to_DP[which(temp_buildings$Connected_DP_Intersection_ID == temp_buildings$LEX_Closest_Intersection_ID)] <- temp_buildings$Route_to_LEX[which(temp_buildings$Connected_DP_Intersection_ID == temp_buildings$LEX_Closest_Intersection_ID)]
-    temp_buildings$Route_DP_to_LEX[which(temp_buildings$Connected_DP_Intersection_ID == temp_buildings$LEX_Closest_Intersection_ID)] <- 'NA'
-    
-    temp_buildings$Route_Building_to_DP[which(temp_buildings$Distance_to_LEX == 'Inf')] <- 'NA'
-    temp_buildings$Route_DP_to_LEX[which(temp_buildings$Distance_to_LEX == 'Inf')] <- 'NA'
-        
-    temp_buildings$Route_Building_to_DP <- unlist(temp_buildings$Route_Building_to_DP)
-    temp_buildings$Route_DP_to_LEX <- unlist(temp_buildings$Route_DP_to_LEX)
-        
-    return(temp_buildings)
-        
-    }
-    
-    stopCluster(cl)
-    closeAllConnections()
-    unregister_dopar()
-    gc()
-      
-    temp_building_routes <- rbindlist(building_routes_DP_LEX)
-    temp_building_routes <- temp_building_routes[order(Building_ID)]
-    T_Buildings <- temp_building_routes
-    T_DPs$Route_DP_to_LEX <- T_Buildings$Route_DP_to_LEX[fmatch(T_DPs$Mapping, paste(T_Buildings$Connected_DP_Intersection_ID,"-",T_Buildings$Connected_LEX_ID,sep=''), nomatch = NA)]
-    T_DPs$Connected_LEX_Intersection_ID <- T_LEXs$Closest_Intersection_ID[fmatch(T_DPs$LEX_ID, T_LEXs$LEX_ID)]
-      
-    rm(building_routes_DP_LEX, temp_building_routes)
-    gc()
-    
-    time_end_4_5_2 <- Sys.time()
-    
-    # 4.5.3. Calculation of OFP locations
-    # The below code is only applied when the number of segments to calculate is 3 #
-    
-    time_start_4_5_3 <- Sys.time()
-    
-    if(no_of_segments >2 ) {
-      
-      Sys.time()
-      
-      OFP_mapping_and_list <- F_OFP_Location_Calculation(T_DPs, T_LEXs, T_Intersection_distances, HH_per_OFP)
-      
-      Sys.time()
-      
-      DP_to_OFP_mapping <- OFP_mapping_and_list[[1]]
-      T_OFPs <-  OFP_mapping_and_list[[2]]
-      T_OFPs$LEX_Intersection_ID <-T_LEXs$Closest_Intersection_ID[fmatch(T_OFPs$LEX_ID, T_LEXs$LEX_ID)]
-      T_OFPs$X <- T_Intersections_Unique$X[fmatch(T_OFPs$OFP_Intersection_ID, T_Intersections_Unique$Intersection_ID)]
-      T_OFPs$Y <- T_Intersections_Unique$Y[fmatch(T_OFPs$OFP_Intersection_ID, T_Intersections_Unique$Intersection_ID)]
-      
-      T_DPs$Connected_OFP_Intersection_ID <- DP_to_OFP_mapping$OFP_Intersection_ID[fmatch(T_DPs$DP_ID, DP_to_OFP_mapping$DP_ID)]
-      T_DPs$Distance_OFP_to_LEX <- DP_to_OFP_mapping$Distance_OFP_to_LEX[fmatch(T_DPs$DP_ID, DP_to_OFP_mapping$DP_ID)]
-      T_DPs$Distance_DP_to_OFP <- T_DPs$Distance_DP_to_LEX - T_DPs$Distance_OFP_to_LEX
-     
-      T_Buildings$Temp_Mapping_DP <- paste(T_Buildings$Connected_DP_Intersection_ID,"-",T_Buildings$Connected_LEX_ID, sep='')
-      T_Buildings$Connected_OFP_Intersection_ID <- T_DPs$Connected_OFP_Intersection_ID[fmatch(T_Buildings$Temp_Mapping_DP, T_DPs$Mapping, nomatch = NA)]
-      T_Buildings$Distance_OFP_to_LEX <- T_DPs$Distance_OFP_to_LEX[fmatch(T_Buildings$Temp_Mapping_DP, T_DPs$Mapping, nomatch = NA)]
-      T_Buildings$Distance_DP_to_OFP <- T_DPs$Distance_DP_to_OFP[fmatch(T_Buildings$Temp_Mapping_DP, T_DPs$Mapping, nomatch = NA)]
-      T_Buildings <- select(T_Buildings, -c(Temp_Mapping_DP))
-
-      rm(OFP_mapping_and_list, DP_to_OFP_mapping)
-      gc() 
-      
-    }
-    
-    time_end_4_5_3 <- Sys.time()
-    
-    # 4.5.4. Calculation of routes from DPs to OFPs and OFPs to Local Exchanges
-    # The below code is only applied when the number of segments to calculate is 3 #
-    
-    time_start_4_5_4 <- Sys.time()
-    
-    if(no_of_segments>2) {
-      
-      closeAllConnections()
-      unregister_dopar()
-      gc()
-      
-      nw <- detectCores()
-      cl <- parallel::makeCluster(nw)
-      doParallel::registerDoParallel(cl)
-      
-      DP_routes_OFP_LEX <- foreach(i = 1:nrow(T_LEXs), .packages = c('data.table', 'igraph', 'fastmatch')) %dopar% {
-        
-        temp_DPs <- setDT(T_DPs)[LEX_ID == i]
-
-        temp_routes <- unlist(temp_DPs$Route_DP_to_LEX)
-        temp_OFP_location <- paste(",",as.character(temp_DPs$Connected_OFP_Intersection_ID),",", sep='')
-        temp_split_routes <- stringr::str_split(temp_routes, temp_OFP_location, n = 2)
-        
-        temp_DPs$Route_DP_to_OFP <- lapply(1:length(temp_split_routes), function(i) {paste(temp_DPs$Connected_OFP_Intersection_ID[i],",",temp_split_routes[[i]][2], sep='')  })
-        temp_DPs$Route_OFP_to_LEX <- lapply(1:length(temp_split_routes), function(i) {paste(temp_split_routes[[i]][1],",",temp_DPs$Connected_OFP_Intersection_ID[i], sep='')  })
-        
-        temp_DPs$Route_DP_to_OFP[which(temp_DPs$DP_Intersection_ID == temp_DPs$Connected_OFP_Intersection_ID)] <- 'NA'
-        temp_DPs$Route_OFP_to_LEX[which(temp_DPs$DP_Intersection_ID == temp_DPs$Connected_OFP_Intersection_ID)] <- temp_DPs$Route_DP_to_LEX[which(temp_DPs$DP_Intersection_ID == temp_DPs$Connected_OFP_Intersection_ID)]
-        
-        temp_DPs$Route_DP_to_OFP[which(temp_DPs$Connected_OFP_Intersection_ID == temp_DPs$Connected_LEX_Intersection_ID)] <- temp_DPs$Route_to_LEX[which(temp_DPs$Connected_OFP_Intersection_ID == temp_DPs$Connected_LEX_Intersection_ID)]
-        temp_DPs$Route_OFP_to_LEX[which(temp_DPs$Connected_OFP_Intersection_ID == temp_DPs$Connected_LEX_Intersection_ID)] <- 'NA'
-        
-        temp_DPs$Route_DP_to_OFP[which(temp_DPs$Distance_DP_to_LEX == 'Inf')] <- 'NA'
-        temp_DPs$Route_OFP_to_LEX[which(temp_DPs$Distance_DP_to_LEX == 'Inf')] <- 'NA'
-        
-        temp_DPs$Route_DP_to_OFP <- unlist(temp_DPs$Route_DP_to_OFP)
-        temp_DPs$Route_OFP_to_LEX <- unlist(temp_DPs$Route_OFP_to_LEX)
-        
-        return(temp_DPs)
-      }
-      
-      stopCluster(cl)
-      closeAllConnections()
-      unregister_dopar()
-      gc()
-      
-    temp_DPs <- rbindlist(DP_routes_OFP_LEX)
-    temp_DPs <- temp_DPs[order(temp_DPs$DP_ID)]
-    T_DPs <- temp_DPs
-    T_DPs$Temp_OFP_Mapping <- paste(T_DPs$Connected_OFP_Intersection_ID,"-",T_DPs$LEX_ID, sep='')
-    T_OFPs$Route_to_LEX <- T_DPs$Route_OFP_to_LEX[fmatch(T_OFPs$Mapping, T_DPs$Temp_OFP_Mapping)]
-    
-    T_DPs <- select(T_DPs, -c(Temp_OFP_Mapping))
-    
-    rm(DP_routes_OFP_LEX, temp_DPs)
-    gc()
-    
-    T_Buildings$Temp_Mapping_DP <- paste(T_Buildings$Connected_DP_Intersection_ID,"-",T_Buildings$Connected_LEX_ID, sep='')
-    
-    T_Buildings$Route_DP_to_OFP <- T_DPs$Route_DP_to_OFP[fmatch(T_Buildings$Temp_Mapping_DP, T_DPs$Mapping)]
-    T_Buildings$Route_OFP_to_LEX <- T_DPs$Route_OFP_to_LEX[fmatch(T_Buildings$Temp_Mapping_DP, T_DPs$Mapping)]
-    
-    T_Buildings <- select(T_Buildings, -c(Temp_Mapping_DP))
-    
-    }
-    
-    time_end_4_5_4 <- Sys.time()
-    
-    save.image(paste(getwd(),"/Outputs/Belgium_sample_600K_until_outputs.RData",sep = ""))
-
-###############################################
-## 5. OUTPUTS
-###############################################  
-    
-    ## 5.1. CALCULATION OF THE NUMBER OF TIMES THE ROAD SECTIONS ARE USED AND TOTAL DISTANCES
-    
-    # 5.1.1. Calculation of road sections used by the routes from OFPs to Local Exchanges
-    # The below code is only applied when the number of segments to calculate is 3 #
-    
-    time_start_5_1_1 <- Sys.time()
-    
-    if(no_of_segments>2) {
-      
-      closeAllConnections()
-      unregister_dopar()
-      gc()
-      
-      p_Minisections <- setDT(T_Minisections)
-      
-      nw <- detectCores()
-      cl <- parallel::makeCluster(nw)
-      doParallel::registerDoParallel(cl)
-      
-      links_OFP_to_LEX <- foreach(i = 1:nrow(T_LEXs), .packages = c('stringr', 'dplyr', 'fastmatch', 'data.table')) %dopar% {
-        
-      temp_OFPs <- T_OFPs[which(T_OFPs$LEX_ID == i),]
-      temp_routes_OFPs_to_LEX <- unlist(temp_OFPs$Route_to_LEX)
-      temp_num_intersections_used <- stringr::str_count(temp_routes_OFPs_to_LEX, ",") + 1
-      temp_split_routes_OFPs_to_LEX <- data.frame(rbindlist(lapply(temp_routes_OFPs_to_LEX, function(x) { strsplit(x, ",") } )))
-      temp_OFP_IDs_rep <- rep(temp_OFPs$OFP_ID, temp_num_intersections_used)
-      temp_OFP_intersections_used <- as.data.frame(cbind(temp_OFP_IDs_rep, temp_split_routes_OFPs_to_LEX))
-      colnames(temp_OFP_intersections_used) <- c("OFP_ID","Intersection_ID_A")
-    
-      temp_minisections_OFPs_to_LEX <- head(temp_OFP_intersections_used, -1)
-      temp_minisections_OFPs_to_LEX$Intersection_ID_B <- temp_OFP_intersections_used$Intersection_ID_A[2:nrow(temp_OFP_intersections_used)]
-      temp_minisections_OFPs_to_LEX$Check_OFP <- temp_OFP_intersections_used$OFP_ID[2:nrow(temp_OFP_intersections_used)]
-      temp_minisections_OFPs_to_LEX <- temp_minisections_OFPs_to_LEX[which(temp_minisections_OFPs_to_LEX$OFP_ID == temp_minisections_OFPs_to_LEX$Check_OFP),]
-      temp_minisections_OFPs_to_LEX <- temp_minisections_OFPs_to_LEX[which(temp_minisections_OFPs_to_LEX$Intersection_ID_A != temp_minisections_OFPs_to_LEX$Intersection_ID_B),]
-    
-      temp_minisections_OFPs_to_LEX$Section_ID_A <- paste(temp_minisections_OFPs_to_LEX$Intersection_ID_A,",",temp_minisections_OFPs_to_LEX$Intersection_ID_B,sep="")
-      temp_minisections_OFPs_to_LEX$Section_ID_B <- paste(temp_minisections_OFPs_to_LEX$Intersection_ID_B,",",temp_minisections_OFPs_to_LEX$Intersection_ID_A,sep="")
-    
-      temp_minisections <- p_Minisections[LEX_ID == i]
-      temp_minisections$Section_ID <- paste(temp_minisections$Intersection_ID_A,",",temp_minisections$Intersection_ID_B,sep='')
-    
-      temp_minisections_OFPs_to_LEX$Section_Distance_Alt_1 <- temp_minisections$Distance[fmatch(temp_minisections_OFPs_to_LEX$Section_ID_A, temp_minisections$Section_ID)]
-      temp_minisections_OFPs_to_LEX$Section_Distance_Alt_1[which(fmatch(temp_minisections_OFPs_to_LEX$Section_ID_A, temp_minisections$Section_ID, nomatch=0) ==0 )] <- 0
-    
-      temp_minisections_OFPs_to_LEX$Section_Distance_Alt_2 <- temp_minisections$Distance[fmatch(temp_minisections_OFPs_to_LEX$Section_ID_B, temp_minisections$Section_ID)]
-      temp_minisections_OFPs_to_LEX$Section_Distance_Alt_2[which(fmatch(temp_minisections_OFPs_to_LEX$Section_ID_B, temp_minisections$Section_ID, nomatch=0) ==0 )] <- 0
-      temp_minisections_OFPs_to_LEX$Section_Distance <- temp_minisections_OFPs_to_LEX$Section_Distance_Alt_1 + temp_minisections_OFPs_to_LEX$Section_Distance_Alt_2
-    
-      temp_minisections_grouped_by <- temp_minisections_OFPs_to_LEX %>% select(Section_ID_A, Section_ID_B, Section_Distance) %>% group_by(Section_ID_A, Section_ID_B) %>% summarise(Tot_Distance = sum(Section_Distance), Num_Links = n(), .groups='drop')
-    
-      temp_aggregation_links_grouped_by <- temp_minisections_grouped_by %>% select(Num_Links, Tot_Distance) %>% group_by(Num_Links) %>% summarise(Total_Distance =sum(Tot_Distance), Total_Sections = sum(Num_Links))
-  
-      return(list(temp_minisections_grouped_by, temp_aggregation_links_grouped_by))
-    
-      }
-      
-      stopCluster(cl)
-      closeAllConnections()
-      unregister_dopar()
-      gc()
-      
-      agg_links_OFP_to_LEXs <- lapply(1:length(links_OFP_to_LEX), function(x) links_OFP_to_LEX[[x]][[1]])
-      agg_links_OFP_to_LEXs <- rbindlist(agg_links_OFP_to_LEXs)
-      
-      agg_results_OFP_to_LEXs <- lapply(1:length(links_OFP_to_LEX), function(x) links_OFP_to_LEX[[x]][[2]])
-      agg_results_OFP_to_LEXs <- rbindlist(agg_results_OFP_to_LEXs)
-      
-      agg_results_OFP_to_LEXs_grouped <- agg_results_OFP_to_LEXs %>% group_by(Num_Links) %>% summarise(Total_Distance = sum(Total_Distance), Total_Sections = sum(Total_Sections))
-      agg_results_OFP_to_LEXs_grouped$Distance_per_hop <- agg_results_OFP_to_LEXs_grouped$Total_Distance / agg_results_OFP_to_LEXs_grouped$Total_Sections 
-      agg_results_OFP_to_LEXs_grouped$Aggregation_links_by_hops <- agg_results_OFP_to_LEXs_grouped$Num_Links * agg_results_OFP_to_LEXs_grouped$Total_Sections
-      agg_results_OFP_to_LEXs_grouped$Weight <- agg_results_OFP_to_LEXs_grouped$Aggregation_links_by_hops / sum(agg_results_OFP_to_LEXs_grouped$Total_Sections)
-      agg_results_OFP_to_LEXs_grouped$Average_distance_per_OFP <- agg_results_OFP_to_LEXs_grouped$Distance_per_hop * agg_results_OFP_to_LEXs_grouped$Weight
-     
-    }
-    
-    time_end_5_1_1 <- Sys.time()
-    
-    # 5.1.2. Calculation of road sections used by the routes from DPs to OFPs
-    # The below code is only applied when the number of segments to calculate is 3 #
-    
-    time_start_5_1_2 <- Sys.time()
-    
-    if(no_of_segments>2) {
-    
-    p_Minisections <- setDT(T_Minisections)
-    
-    closeAllConnections()
-    unregister_dopar()
-    gc()
-    
-    nw <- detectCores()
-    cl <- parallel::makeCluster(nw)
-    doParallel::registerDoParallel(cl)
-    
-    Sys.time()
-    
-    links_DP_to_OFP <- foreach(i = 1:nrow(T_LEXs), .packages = c('stringr', 'dplyr', 'fastmatch', 'data.table')) %dopar% {
-      
-      temp_DPs <- T_DPs[which(T_DPs$LEX_ID == i),]
-      temp_routes_DPs_to_OFPs <- unlist(temp_DPs$Route_DP_to_OFP)
-      temp_num_intersections_used <- stringr::str_count(temp_routes_DPs_to_OFPs, ",") + 1
-      temp_split_routes_DPs_to_OFPs <- data.frame(rbindlist(lapply(temp_routes_DPs_to_OFPs, function(x) { strsplit(x, ",") } )))
-      temp_DP_IDs_rep <- rep(temp_DPs$DP_ID, temp_num_intersections_used)
-      temp_DP_intersections_used <- as.data.frame(cbind(temp_DP_IDs_rep, temp_split_routes_DPs_to_OFPs))
-      colnames(temp_DP_intersections_used) <- c("DP_ID","Intersection_ID_A")
-      
-      temp_DP_intersections_used <- temp_DP_intersections_used[which(temp_DP_intersections_used$Intersection_ID_A != 'NA'),]
-      
-      temp_minisections_DPs_to_OFPs <- head(temp_DP_intersections_used, -1)
-      temp_minisections_DPs_to_OFPs$Intersection_ID_B <- temp_DP_intersections_used$Intersection_ID_A[2:nrow(temp_DP_intersections_used)]
-      temp_minisections_DPs_to_OFPs$Check_DP <- temp_DP_intersections_used$DP_ID[2:nrow(temp_DP_intersections_used)]
-      temp_minisections_DPs_to_OFPs <- temp_minisections_DPs_to_OFPs[which(temp_minisections_DPs_to_OFPs$DP_ID == temp_minisections_DPs_to_OFPs$Check_DP),]
-      temp_minisections_DPs_to_OFPs <- temp_minisections_DPs_to_OFPs[which(temp_minisections_DPs_to_OFPs$Intersection_ID_A != temp_minisections_DPs_to_OFPs$Intersection_ID_B),]
-      
-      temp_minisections_DPs_to_OFPs$Section_ID_A <- paste(temp_minisections_DPs_to_OFPs$Intersection_ID_A,",",temp_minisections_DPs_to_OFPs$Intersection_ID_B,sep="")
-      temp_minisections_DPs_to_OFPs$Section_ID_B <- paste(temp_minisections_DPs_to_OFPs$Intersection_ID_B,",",temp_minisections_DPs_to_OFPs$Intersection_ID_A,sep="")
-      
-      temp_minisections <- p_Minisections[LEX_ID == i]
-      temp_minisections$Section_ID <- paste(temp_minisections$Intersection_ID_A,",",temp_minisections$Intersection_ID_B,sep='')
-      
-      temp_minisections_DPs_to_OFPs$Section_Distance_Alt_1 <- temp_minisections$Distance[fmatch(temp_minisections_DPs_to_OFPs$Section_ID_A, temp_minisections$Section_ID)]
-      temp_minisections_DPs_to_OFPs$Section_Distance_Alt_1[which(fmatch(temp_minisections_DPs_to_OFPs$Section_ID_A, temp_minisections$Section_ID, nomatch=0) ==0 )] <- 0
-      
-      temp_minisections_DPs_to_OFPs$Section_Distance_Alt_2 <- temp_minisections$Distance[fmatch(temp_minisections_DPs_to_OFPs$Section_ID_B, temp_minisections$Section_ID)]
-      temp_minisections_DPs_to_OFPs$Section_Distance_Alt_2[which(fmatch(temp_minisections_DPs_to_OFPs$Section_ID_B, temp_minisections$Section_ID, nomatch=0) ==0 )] <- 0
-      temp_minisections_DPs_to_OFPs$Section_Distance <- temp_minisections_DPs_to_OFPs$Section_Distance_Alt_1 + temp_minisections_DPs_to_OFPs$Section_Distance_Alt_2
-      
-      temp_minisections_grouped_by <- temp_minisections_DPs_to_OFPs %>% select(Section_ID_A, Section_ID_B, Section_Distance) %>% group_by(Section_ID_A, Section_ID_B) %>% summarise(Tot_Distance = sum(Section_Distance), Num_Links = n(), .groups='drop')
-      
-      temp_aggregation_links_grouped_by <- temp_minisections_grouped_by %>% select(Num_Links, Tot_Distance) %>% group_by(Num_Links) %>% summarise(Total_Distance = sum(Tot_Distance), Total_Sections = sum(Num_Links))
-      
-      return(list(temp_minisections_grouped_by, temp_aggregation_links_grouped_by))
-      
-    }
-    
-    Sys.time()
-    
-    stopCluster(cl)
-    closeAllConnections()
-    unregister_dopar()
-    gc()
-    
-    agg_links_DP_to_OFPs <- lapply(1:length(links_DP_to_OFP), function(x) links_DP_to_OFP[[x]][[1]])
-    agg_links_DP_to_OFPs <- rbindlist(agg_links_DP_to_OFPs)
-    
-    agg_results_DP_to_OFPs <- lapply(1:length(links_DP_to_OFP), function(x) links_DP_to_OFP[[x]][[2]])
-    agg_results_DP_to_OFPs <- rbindlist(agg_results_DP_to_OFPs)
-    
-    agg_results_DP_to_OFPs_grouped <- agg_results_DP_to_OFPs %>% group_by(Num_Links) %>% summarise(Total_Distance = sum(Total_Distance), Total_Sections = sum(Total_Sections))
-    agg_results_DP_to_OFPs_grouped$Distance_per_hop <- agg_results_DP_to_OFPs_grouped$Total_Distance / agg_results_DP_to_OFPs_grouped$Total_Sections 
-    agg_results_DP_to_OFPs_grouped$Aggregation_links_by_hops <- agg_results_DP_to_OFPs_grouped$Num_Links * agg_results_DP_to_OFPs_grouped$Total_Sections
-    agg_results_DP_to_OFPs_grouped$Weight <- agg_results_DP_to_OFPs_grouped$Aggregation_links_by_hops / sum(agg_results_DP_to_OFPs_grouped$Total_Sections)
-    agg_results_DP_to_OFPs_grouped$Average_distance_per_DP <- agg_results_DP_to_OFPs_grouped$Distance_per_hop * agg_results_DP_to_OFPs_grouped$Weight
-    
-    }
-    
-    time_end_5_1_2 <- Sys.time()
-    
-    
-    # 5.1.3. Calculation of road sections used by the routes from DPs to Local Exchanges
-    # The below code is only applied when the number of segments to calculate is 2 #
-    
-    time_start_5_1_3 <- Sys.time()
-    
-    if(no_of_segments==2) {
-      
-      closeAllConnections()
-      unregister_dopar()
-      gc()
-      
-      p_Minisections <- setDT(T_Minisections)
-      
-      nw <- detectCores()
-      cl <- parallel::makeCluster(nw)
-      doParallel::registerDoParallel(cl)
-      
-      links_DP_to_LEX <- foreach(i = 1:nrow(T_LEXs), .packages = c('stringr', 'dplyr', 'fastmatch', 'data.table')) %dopar% {
-        
-        temp_DPs <- T_DPs[which(T_DPs$LEX_ID == i),]
-        if(nrow(temp_DPs) ==0) {
-          return (NULL)
-        }
-        temp_routes_DPs_to_LEX <- unlist(temp_DPs$Route_DP_to_LEX)
-        temp_num_intersections_used <- stringr::str_count(temp_routes_DPs_to_LEX, ",") + 1
-        temp_split_routes_DPs_to_LEX <- data.frame(rbindlist(lapply(temp_routes_DPs_to_LEX, function(x) { strsplit(x, ",") } )))
-        temp_DP_IDs_rep <- rep(temp_DPs$DP_ID, temp_num_intersections_used)
-        temp_DP_intersections_used <- as.data.frame(cbind(temp_DP_IDs_rep, temp_split_routes_DPs_to_LEX))
-        colnames(temp_DP_intersections_used) <- c("DP_ID","Intersection_ID_A")
-        
-        temp_minisections_DPs_to_LEX <- head(temp_DP_intersections_used, -1)
-        temp_minisections_DPs_to_LEX$Intersection_ID_B <- temp_DP_intersections_used$Intersection_ID_A[2:nrow(temp_DP_intersections_used)]
-        temp_minisections_DPs_to_LEX$Check_DP <- temp_DP_intersections_used$DP_ID[2:nrow(temp_DP_intersections_used)]
-        temp_minisections_DPs_to_LEX <- temp_minisections_DPs_to_LEX[which(temp_minisections_DPs_to_LEX$DP_ID == temp_minisections_DPs_to_LEX$Check_DP),]
-        temp_minisections_DPs_to_LEX <- temp_minisections_DPs_to_LEX[which(temp_minisections_DPs_to_LEX$Intersection_ID_A != temp_minisections_DPs_to_LEX$Intersection_ID_B),]
-        
-        temp_minisections_DPs_to_LEX$Section_ID_A <- paste(temp_minisections_DPs_to_LEX$Intersection_ID_A,",",temp_minisections_DPs_to_LEX$Intersection_ID_B,sep="")
-        temp_minisections_DPs_to_LEX$Section_ID_B <- paste(temp_minisections_DPs_to_LEX$Intersection_ID_B,",",temp_minisections_DPs_to_LEX$Intersection_ID_A,sep="")
-        
-        temp_minisections <- p_Minisections[LEX_ID == i]
-        temp_minisections$Section_ID <- paste(temp_minisections$Intersection_ID_A,",",temp_minisections$Intersection_ID_B,sep='')
-        
-        temp_minisections_DPs_to_LEX$Section_Distance_Alt_1 <- temp_minisections$Distance[fmatch(temp_minisections_DPs_to_LEX$Section_ID_A, temp_minisections$Section_ID)]
-        temp_minisections_DPs_to_LEX$Section_Distance_Alt_1[which(fmatch(temp_minisections_DPs_to_LEX$Section_ID_A, temp_minisections$Section_ID, nomatch=0) ==0 )] <- 0
-        
-        temp_minisections_DPs_to_LEX$Section_Distance_Alt_2 <- temp_minisections$Distance[fmatch(temp_minisections_DPs_to_LEX$Section_ID_B, temp_minisections$Section_ID)]
-        temp_minisections_DPs_to_LEX$Section_Distance_Alt_2[which(fmatch(temp_minisections_DPs_to_LEX$Section_ID_B, temp_minisections$Section_ID, nomatch=0) ==0 )] <- 0
-        temp_minisections_DPs_to_LEX$Section_Distance <- temp_minisections_DPs_to_LEX$Section_Distance_Alt_1 + temp_minisections_DPs_to_LEX$Section_Distance_Alt_2
-        
-        temp_minisections_grouped_by <- temp_minisections_DPs_to_LEX %>% select(Section_ID_A, Section_ID_B, Section_Distance) %>% group_by(Section_ID_A, Section_ID_B) %>% summarise(Tot_Distance = sum(Section_Distance), Num_Links = n(), .groups='drop')
-        
-        temp_aggregation_links_grouped_by <- temp_minisections_grouped_by %>% select(Num_Links, Tot_Distance) %>% group_by(Num_Links) %>% summarise(Total_Distance =sum(Tot_Distance), Total_Sections = sum(Num_Links))
-        
-        return(list(temp_minisections_grouped_by, temp_aggregation_links_grouped_by))
-        
-      }
-      
-      stopCluster(cl)
-      closeAllConnections()
-      unregister_dopar()
-      gc()
-      
-      agg_links_DP_to_LEXs <- lapply(1:length(links_DP_to_LEX), function(x) links_DP_to_LEX[[x]][[1]])
-      agg_links_DP_to_LEXs <- rbindlist(agg_links_DP_to_LEXs)
-      
-      agg_results_DP_to_LEXs <- lapply(1:length(links_DP_to_LEX), function(x) links_DP_to_LEX[[x]][[2]])
-      agg_results_DP_to_LEXs <- rbindlist(agg_results_DP_to_LEXs)
-      
-      agg_results_DP_to_LEXs_grouped <- agg_results_DP_to_LEXs %>% group_by(Num_Links) %>% summarise(Total_Distance = sum(Total_Distance), Total_Sections = sum(Total_Sections))
-      agg_results_DP_to_LEXs_grouped$Distance_per_hop <- agg_results_DP_to_LEXs_grouped$Total_Distance / agg_results_DP_to_LEXs_grouped$Total_Sections 
-      agg_results_DP_to_LEXs_grouped$Aggregation_links_by_hops <- agg_results_DP_to_LEXs_grouped$Num_Links * agg_results_DP_to_LEXs_grouped$Total_Sections
-      agg_results_DP_to_LEXs_grouped$Weight <- agg_results_DP_to_LEXs_grouped$Aggregation_links_by_hops / sum(agg_results_DP_to_LEXs_grouped$Total_Sections)
-      agg_results_DP_to_LEXs_grouped$Average_distance_per_DP <- agg_results_DP_to_LEXs_grouped$Distance_per_hop * agg_results_DP_to_LEXs_grouped$Weight
-      
-    }
-    
-    time_end_5_1_3 <- Sys.time()
-    
-    
-    # 5.1.4. Calculation of road sections used by the routes from buildings to DPs
-
-      time_start_5_1_4 <- Sys.time()
-      
-      closeAllConnections()
-      unregister_dopar()
-      gc()
-      
-      p_Minisections <- setDT(T_Minisections)
-      
-      nw <- detectCores()
-      cl <- parallel::makeCluster(nw)
-      doParallel::registerDoParallel(cl)
-      
-      Sys.time()
-      
-      links_building_to_DP <- foreach(i = 1:nrow(T_LEXs), .packages = c('stringr', 'dplyr', 'fastmatch', 'data.table')) %dopar% {
-        
-        temp_buildings <- T_Buildings[which(T_Buildings$Connected_LEX_ID == i),]
-        temp_buildings <- temp_buildings[which(temp_buildings$Distance_to_LEX != 'Inf'),]
-        temp_routes_buildings_to_DPs <- unlist(temp_buildings$Route_Building_to_DP)
-        temp_num_intersections_used <- stringr::str_count(temp_routes_buildings_to_DPs, ",") + 1
-        temp_split_routes_buildings_to_DPs <- data.frame(rbindlist(lapply(temp_routes_buildings_to_DPs, function(x) { strsplit(x, ",") } )))
-        temp_building_IDs_rep <- rep(temp_buildings$Building_ID, temp_num_intersections_used)
-        temp_building_intersections_used <- as.data.frame(cbind(temp_building_IDs_rep, temp_split_routes_buildings_to_DPs))
-        colnames(temp_building_intersections_used) <- c("Building_ID","Intersection_ID_A")
-        
-        temp_building_intersections_used <- temp_building_intersections_used[which(temp_building_intersections_used$Intersection_ID_A != 'NA'),]
-        
-        if(nrow(temp_building_intersections_used) == 0) 
-        {
-          return (NULL)
-        }
-        
-        temp_minisections_buildings_to_DPs <- head(temp_building_intersections_used, -1)
-        temp_minisections_buildings_to_DPs$Intersection_ID_B <- temp_building_intersections_used$Intersection_ID_A[2:nrow(temp_building_intersections_used)]
-        temp_minisections_buildings_to_DPs$Check_building <- temp_building_intersections_used$Building_ID[2:nrow(temp_building_intersections_used)]
-        temp_minisections_buildings_to_DPs <- temp_minisections_buildings_to_DPs[which(temp_minisections_buildings_to_DPs$Building_ID == temp_minisections_buildings_to_DPs$Check_building),]
-        temp_minisections_buildings_to_DPs <- temp_minisections_buildings_to_DPs[which(temp_minisections_buildings_to_DPs$Intersection_ID_A != temp_minisections_buildings_to_DPs$Intersection_ID_B),]
-        
-        temp_minisections_buildings_to_DPs$Section_ID_A <- paste(temp_minisections_buildings_to_DPs$Intersection_ID_A,",",temp_minisections_buildings_to_DPs$Intersection_ID_B,sep="")
-        temp_minisections_buildings_to_DPs$Section_ID_B <- paste(temp_minisections_buildings_to_DPs$Intersection_ID_B,",",temp_minisections_buildings_to_DPs$Intersection_ID_A,sep="")
-        
-        temp_minisections <- p_Minisections[LEX_ID == i]
-        temp_minisections$Section_ID <- paste(temp_minisections$Intersection_ID_A,",",temp_minisections$Intersection_ID_B,sep='')
-        
-        temp_minisections_buildings_to_DPs$Section_Distance_Alt_1 <- temp_minisections$Distance[fmatch(temp_minisections_buildings_to_DPs$Section_ID_A, temp_minisections$Section_ID)]
-        temp_minisections_buildings_to_DPs$Section_Distance_Alt_1[which(fmatch(temp_minisections_buildings_to_DPs$Section_ID_A, temp_minisections$Section_ID, nomatch=0) ==0 )] <- 0
-        
-        temp_minisections_buildings_to_DPs$Section_Distance_Alt_2 <- temp_minisections$Distance[fmatch(temp_minisections_buildings_to_DPs$Section_ID_B, temp_minisections$Section_ID)]
-        temp_minisections_buildings_to_DPs$Section_Distance_Alt_2[which(fmatch(temp_minisections_buildings_to_DPs$Section_ID_B, temp_minisections$Section_ID, nomatch=0) ==0 )] <- 0
-        temp_minisections_buildings_to_DPs$Section_Distance <- temp_minisections_buildings_to_DPs$Section_Distance_Alt_1 + temp_minisections_buildings_to_DPs$Section_Distance_Alt_2
-        
-        temp_minisections_grouped_by <- temp_minisections_buildings_to_DPs %>% select(Section_ID_A, Section_ID_B, Section_Distance) %>% group_by(Section_ID_A, Section_ID_B) %>% summarise(Tot_Distance = sum(Section_Distance), Num_Links = n(), .groups='drop')
-        
-        temp_aggregation_links_grouped_by <- temp_minisections_grouped_by %>% select(Num_Links, Tot_Distance) %>% group_by(Num_Links) %>% summarise(Total_Distance = sum(Tot_Distance), Total_Sections = sum(Num_Links))
-        
-        return(list(temp_minisections_grouped_by, temp_aggregation_links_grouped_by))
-        
-      }
-      
-      Sys.time()
-      
-      stopCluster(cl)
-      closeAllConnections()
-      unregister_dopar()
-      gc()
-      
-      agg_links_building_to_DPs <- lapply(1:length(links_building_to_DP), function(x) links_building_to_DP[[x]][[1]])
-      agg_links_building_to_DPs <- rbindlist(agg_links_building_to_DPs)
-      
-      agg_results_building_to_DPs <- lapply(1:length(links_building_to_DP), function(x) links_building_to_DP[[x]][[2]])
-      agg_results_building_to_DPs <- rbindlist(agg_results_building_to_DPs)
-      
-      agg_results_building_to_DPs_grouped <- agg_results_building_to_DPs %>% group_by(Num_Links) %>% summarise(Total_Distance = sum(Total_Distance), Total_Sections = sum(Total_Sections))
-      agg_results_building_to_DPs_grouped$Distance_per_hop <- agg_results_building_to_DPs_grouped$Total_Distance / agg_results_building_to_DPs_grouped$Total_Sections 
-      agg_results_building_to_DPs_grouped$Aggregation_links_by_hops <- agg_results_building_to_DPs_grouped$Num_Links * agg_results_building_to_DPs_grouped$Total_Sections
-      agg_results_building_to_DPs_grouped$Weight <- agg_results_building_to_DPs_grouped$Aggregation_links_by_hops / sum(agg_results_building_to_DPs_grouped$Total_Sections)
-      agg_results_building_to_DPs_grouped$Average_distance_per_building <- agg_results_building_to_DPs_grouped$Distance_per_hop * agg_results_building_to_DPs_grouped$Weight
-      
-      time_end_5_1_4 <- Sys.time()
-      
-      save.image(paste(getwd(),"/Outputs/Belgium_sample_600K_full_results.RData",sep = ""))
+# Run the app ----
+shinyApp(ui = ui, server = server)
